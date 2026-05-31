@@ -32,8 +32,10 @@ import googleplay_pb2 as gp  # clean, self-contained Play protobuf bindings
 BASE = "https://android.clients.google.com"
 DISPENSER = "https://auroraoss.com/api/auth"
 DISPENSER_UA = "com.aurora.store-4.7.4"
+LOCALE = "en_US"
 
-# Current gplayapi 3.6.2 header blobs (captured from the working reference).
+# Finsky header blobs (from a current Aurora gplayapi release). If Google ever starts
+# rejecting these, refresh them from gplayapi's HeaderProvider.kt source.
 DFE_TARGETS = ("CAESN/qigQYC2AMBFfUbyA7SM5Ij/CvfBoIDgxHqGP8R3xzIBvoQtBKFDZ4HAY4FrwSVMasHBO0O2Q8a"
     "kgYRAQECAQO7AQEpKZ0CnwECAwRrAQYBr9PPAoK7sQMBAQMCBAkIDAgBAwEDBAICBAUZEgMEBAMLAQEBBQEBAcYBARYE"
     "D+cBfS8CHQEKkAEMMxcBIQoUDwYHIjd3DQ4MFk0JWGYZEREYAQOLAYEBFDMIEYMBAgICAgICOxkCD18LGQKEAcgDBIQB"
@@ -54,8 +56,6 @@ DFE_PHENOTYPE = ("H4sIAAAAAAAAAB3OO3KjMAAA0KRNuWXukBkBQkAJ2MhgAZb5u2GCwQZbCH_EJ7
     "3YxQafC4iC6T55aRbC8nTI98AF_kItIQAJb5EQxnKTO7TZDWnr01HVPxelb9A2OWX6poidMWl16K54kcu_jhXw-JSBQkV"
     "cD_fPsLSZu6joIBAAA")
 
-LOCALE = "en_US"
-
 
 # ---------------------------------------------------------------- device profile
 def load_device(path):
@@ -63,15 +63,14 @@ def load_device(path):
     with open(path, encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            k, v = line.split("=", 1)
-            d[k.strip().lower()] = v.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                d[k.strip().lower()] = v.strip()
     return d
 
 
 DEV = load_device(os.path.join(HERE, "device.properties"))
-def dv(k):  # case-insensitive device property lookup
+def dv(k):
     return DEV.get(k.lower(), "")
 
 
@@ -208,12 +207,9 @@ def delivery(sess, token, gsfid, ckt, cft, pkg, vc, dtok, ot=1):
     data = wrapper(r.content).payload.deliveryResponse.appDeliveryData
     files = []
     if data.downloadUrl:
-        files.append(("base.apk", data.downloadUrl, data.downloadSize))
+        files.append(("base.apk", data.downloadUrl))
     for s in data.split:
-        name = s.name if s.name.endswith(".apk") else "%s.apk" % s.name
-        files.append((name, s.downloadUrl, s.size))
-    for af in data.additionalFile:
-        files.append(("%s.%s.obb" % (af.fileType and "patch" or "main", vc), af.downloadUrl, af.size))
+        files.append((s.name if s.name.endswith(".apk") else "%s.apk" % s.name, s.downloadUrl))
     cookies = {c.name: c.value for c in data.downloadAuthCookie}
     return files, cookies
 
@@ -235,8 +231,7 @@ def download(url, cookies, dest):
     return os.path.getsize(dest)
 
 
-# ---------------------------------------------------------------- orchestration
-def fetch(pkg, version, out_dir, retries=5):
+def fetch(pkg, version, out_dir, retries=4):
     last = None
     for attempt in range(1, retries + 1):
         try:
@@ -257,9 +252,8 @@ def fetch(pkg, version, out_dir, retries=5):
                 raise RuntimeError("delivery returned no files (not purchasable / wrong version?)")
             print("[*] files: %d" % len(files), file=sys.stderr)
             os.makedirs(out_dir, exist_ok=True)
-            for name, url, size in files:
-                dest = os.path.join(out_dir, name)
-                got = download(url, cookies, dest)
+            for name, url in files:
+                got = download(url, cookies, os.path.join(out_dir, name))
                 print("    -> %s (%d bytes)" % (name, got), file=sys.stderr)
             return out_dir
         except Exception as e:  # dispenser rate-limit / transient — retry with fresh creds
@@ -272,13 +266,11 @@ def fetch(pkg, version, out_dir, retries=5):
 def main():
     ap = argparse.ArgumentParser(description="Download a Google Play app (base + splits) locally.")
     ap.add_argument("package", help="package name, e.g. com.anthropic.claude")
-    ap.add_argument("--version", "-v", type=int, default=0,
-                    help="specific versionCode (default: latest)")
+    ap.add_argument("--version", "-v", type=int, default=0, help="versionCode (default: latest)")
     ap.add_argument("--out", "-o", default=None, help="output dir (default: play_out/<package>)")
     a = ap.parse_args()
     out = a.out or os.path.join(HERE, "play_out", a.package)
-    result = fetch(a.package, a.version, out)
-    print("DONE: %s" % result)
+    print("DONE: %s" % fetch(a.package, a.version, out))
 
 
 if __name__ == "__main__":
