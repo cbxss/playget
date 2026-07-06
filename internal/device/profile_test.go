@@ -1,17 +1,19 @@
-package device
+package device_test
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
+
+	"github.com/cbxss/playget/internal/assets"
+	"github.com/cbxss/playget/internal/device"
 )
 
 func TestDeviceConfigOverlay(t *testing.T) {
-	profile, err := Load(filepath.Join("..", "..", "device.properties"))
+	profile, err := assets.DeviceProfile()
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := DeviceConfig(profile, []string{"android.software.companion_device_setup"})
+	cfg, err := device.DeviceConfig(profile, []string{"android.software.companion_device_setup"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,17 +26,17 @@ func TestDeviceConfigOverlay(t *testing.T) {
 	if !found {
 		t.Fatalf("overlay feature missing from device config")
 	}
-	if got := UserAgent(profile); got == "" {
+	if got := device.UserAgent(profile); got == "" {
 		t.Fatalf("empty user agent")
 	}
 }
 
 func TestSummaryJSONMatchesFixture(t *testing.T) {
-	profile, err := Load(filepath.Join("..", "..", "device.properties"))
+	profile, err := assets.DeviceProfile()
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := SummaryJSON(profile, []string{"android.software.companion_device_setup"})
+	got, err := device.SummaryJSON(profile, []string{"android.software.companion_device_setup"})
 	if err != nil {
 		t.Fatal(err)
 	}

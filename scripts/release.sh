@@ -19,7 +19,8 @@ fi
 current="$(tr -d '[:space:]' < VERSION)"
 if [[ "$current" != "$version" ]]; then
   printf '%s\n' "$version" > VERSION
-  git add VERSION
+  printf '%s\n' "$version" > internal/assets/VERSION
+  git add VERSION internal/assets/VERSION
   git commit -m "Release v$version"
 fi
 

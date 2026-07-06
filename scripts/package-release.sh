@@ -10,24 +10,25 @@ if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z]+)*$ ]]; then
 fi
 
 dist="dist"
-work="$dist/work"
-pkg="playget-$version"
-pkg_dir="$work/$pkg"
 
-rm -rf "$work"
-mkdir -p "$pkg_dir" "$dist"
+rm -rf "$dist"
+mkdir -p "$dist"
 
-install -m 0755 playget.py "$pkg_dir/playget.py"
-install -m 0755 install.sh "$pkg_dir/install.sh"
-install -m 0644 VERSION README.md device.properties googleplay.proto googleplay_pb2.py "$pkg_dir/"
+build_one() {
+  local os_name="$1"
+  local arch="$2"
+  local out="$dist/playget-${os_name}-${arch}"
+  CGO_ENABLED=0 GOOS="$os_name" GOARCH="$arch" \
+    go build -trimpath -ldflags "-s -w -X main.version=$version" -o "$out" ./cmd/playget
+}
 
-tar -C "$work" -czf "$dist/$pkg.tar.gz" "$pkg"
-cp "$dist/$pkg.tar.gz" "$dist/playget.tar.gz"
+build_one linux amd64
+build_one linux arm64
 install -m 0755 install.sh "$dist/install.sh"
 
 (
   cd "$dist"
-  sha256sum "$pkg.tar.gz" playget.tar.gz install.sh > sha256sums.txt
+  sha256sum playget-* install.sh > sha256sums.txt
 )
 
-printf 'created %s/%s.tar.gz\n' "$dist" "$pkg"
+printf 'created release binaries in %s\n' "$dist"

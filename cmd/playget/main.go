@@ -1,42 +1,27 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 
+	"github.com/cbxss/playget/internal/assets"
 	"github.com/cbxss/playget/internal/device"
+	"github.com/cbxss/playget/internal/play"
 )
 
 const defaultProfile = "pixel_7a"
 
-func repoRoot() string {
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		return "."
-	}
-	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
-}
+var version = assets.Version()
 
-func readVersion(root string) string {
-	data, err := os.ReadFile(filepath.Join(root, "VERSION"))
-	if err != nil {
+func readVersion() string {
+	if version == "" {
 		return "0.0.0+unknown"
 	}
-	return string(bytesTrimSpace(data))
-}
-
-func bytesTrimSpace(data []byte) []byte {
-	start, end := 0, len(data)
-	for start < end && (data[start] == ' ' || data[start] == '\n' || data[start] == '\t' || data[start] == '\r') {
-		start++
-	}
-	for end > start && (data[end-1] == ' ' || data[end-1] == '\n' || data[end-1] == '\t' || data[end-1] == '\r') {
-		end--
-	}
-	return data[start:end]
+	return version
 }
 
 type featureFlags []string
@@ -52,15 +37,20 @@ func (f *featureFlags) Set(value string) error {
 
 func main() {
 	var extras featureFlags
+	var versionCode int
 	toolVersion := flag.Bool("tool-version", false, "print the playget tool version and exit")
 	dumpConfig := flag.Bool("dump-device-config-json", false, "print deterministic device config JSON and exit")
+	probeOnly := flag.Bool("probe-only", false, "resolve delivery metadata without downloading APK files")
 	profileName := flag.String("profile", "auto", "device profile to use")
+	outDir := flag.String("out", "", "output dir (default: play_out/<package>)")
+	noCache := flag.Bool("no-cache", false, "disable the per-package profile cache")
+	flag.IntVar(&versionCode, "version", 0, "versionCode (default: latest)")
+	flag.IntVar(&versionCode, "v", 0, "versionCode (default: latest)")
 	flag.Var(&extras, "extra-feature", "temporary Android feature to advertise; repeatable")
 	flag.Parse()
 
-	root := repoRoot()
 	if *toolVersion {
-		fmt.Printf("playget %s\n", readVersion(root))
+		fmt.Printf("playget %s\n", readVersion())
 		return
 	}
 
@@ -69,7 +59,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	profile, err := device.Load(filepath.Join(root, "device.properties"))
+	profile, err := assets.DeviceProfile()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "load profile: %v\n", err)
 		os.Exit(1)
@@ -85,6 +75,53 @@ func main() {
 		return
 	}
 
-	fmt.Fprintln(os.Stderr, "native Go downloader is not protocol-complete yet; use playget.py until parity lands")
-	os.Exit(2)
+	if flag.NArg() != 1 {
+		fmt.Fprintln(os.Stderr, "usage: playget [options] <package>")
+		os.Exit(2)
+	}
+	pkg := flag.Arg(0)
+	out := *outDir
+	if out == "" {
+		out = filepath.Join("play_out", pkg)
+	}
+	opts := play.Options{
+		Package:      pkg,
+		VersionCode:  versionCode,
+		OutDir:       out,
+		Profile:      profile,
+		ProfileName:  *profileName,
+		ExtraFeature: extras,
+		UseCache:     !*noCache,
+		Log:          os.Stderr,
+	}
+	ctx := context.Background()
+	if *probeOnly {
+		result, candidate, err := play.Resolve(ctx, opts)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		payload := struct {
+			Profile      string      `json:"profile"`
+			ExtraFeature []string    `json:"extra_features"`
+			Result       interface{} `json:"result"`
+		}{
+			Profile:      candidate.Name,
+			ExtraFeature: candidate.Extra,
+			Result:       result,
+		}
+		data, err := json.MarshalIndent(payload, "", "  ")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println(string(data))
+		return
+	}
+	done, err := play.Fetch(ctx, opts)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	fmt.Printf("DONE: %s\n", done)
 }

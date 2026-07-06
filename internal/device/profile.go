@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -39,9 +40,12 @@ func Load(path string) (Profile, error) {
 		return nil, err
 	}
 	defer fh.Close()
+	return Parse(fh)
+}
 
+func Parse(r io.Reader) (Profile, error) {
 	profile := Profile{}
-	scanner := bufio.NewScanner(fh)
+	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, "#") || !strings.Contains(line, "=") {
