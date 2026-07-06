@@ -19,7 +19,7 @@ build_one() {
   local arch="$2"
   local out="$dist/playget-${os_name}-${arch}"
   CGO_ENABLED=0 GOOS="$os_name" GOARCH="$arch" \
-    go build -trimpath -ldflags "-s -w -X main.version=$version" -o "$out" ./cmd/playget
+    go build -trimpath -ldflags "-s -w -X main.version=$version" -o "$out" .
 }
 
 build_one linux amd64

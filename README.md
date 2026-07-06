@@ -68,7 +68,7 @@ and APK reverse-engineering scratch directories.
 
 | | |
 |---|---|
-| `cmd/playget` | the CLI |
+| `main.go` | the CLI |
 | `VERSION` | release version |
 | `googleplay.proto` / `internal/playproto` | self-contained Play protobuf schema |
 | `internal/assets/device.properties` | embedded spoofed device profile |

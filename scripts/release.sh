@@ -30,6 +30,7 @@ if git rev-parse "$tag" >/dev/null 2>&1; then
   exit 1
 fi
 
+scripts/smoke.sh
 scripts/package-release.sh >/dev/null
 git tag -a "$tag" -m "playget $tag"
 git push origin HEAD

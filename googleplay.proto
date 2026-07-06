@@ -1,5 +1,7 @@
 syntax = "proto2";
 
+option go_package = "github.com/cbxss/playget/internal/playproto";
+
 message AndroidAppDeliveryData {
   optional int64 downloadSize = 1;
   optional string sha1 = 2;
@@ -1434,4 +1436,3 @@ message DeveloperIdContainer {
   optional int32 unknownInt2 = 2;
   optional int32 unknownInt3 = 3;
 }
-
