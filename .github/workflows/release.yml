@@ -50,6 +50,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          notes="$RUNNER_TEMP/release-notes.md"
           printf '%s\n' \
             'Install:' \
             '' \
@@ -58,7 +59,8 @@ jobs:
             '```' \
             '' \
             'Assets include native Go binaries for Linux on amd64/arm64.' \
-            > dist/release-notes.md
+            > "$notes"
+          printf 'RELEASE_NOTES=%s\n' "$notes" >> "$GITHUB_ENV"
 
       - name: Publish release
         env:
@@ -74,5 +76,5 @@ jobs:
           else
             gh release create "$tag" "${assets[@]}" \
               --title "playget $tag" \
-              --notes-file dist/release-notes.md
+              --notes-file "$RELEASE_NOTES"
           fi

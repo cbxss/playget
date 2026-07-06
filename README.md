@@ -7,6 +7,7 @@ It uses anonymous credentials from [Aurora](https://gitlab.com/AuroraOSS)'s toke
 ## Requires
 
 - **A residential IP** — Google blocks Play login from datacenter IPs.
+- Linux on `amd64` or `arm64` for the release installer.
 
 ## Install
 
@@ -14,7 +15,7 @@ It uses anonymous credentials from [Aurora](https://gitlab.com/AuroraOSS)'s toke
 curl -fsSL https://github.com/cbxss/playget/releases/latest/download/install.sh | bash
 ```
 
-The installer detects your OS/architecture, downloads the latest native Go
+The installer detects your Linux architecture, downloads the latest native Go
 binary from GitHub Releases, verifies its checksum when `sha256sum` is
 available, and installs it to `~/.local/bin/playget`.
 
@@ -54,11 +55,14 @@ native Go binaries for Linux on amd64/arm64, and `sha256sums.txt`.
 ```sh
 scripts/smoke.sh
 PLAYGET_LIVE=1 scripts/smoke.sh
+scripts/clean.sh
 ```
 
 The default smoke test is offline. `PLAYGET_LIVE=1` adds live Play checks for
 checkin/device config upload, Withings base-profile unavailability, Withings
 runtime-overlay delivery metadata, and IATA base-profile delivery metadata.
+`scripts/clean.sh` removes local generated outputs like `dist/`, `play_out/`,
+and APK reverse-engineering scratch directories.
 
 ## Files
 

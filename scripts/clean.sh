@@ -3,4 +3,4 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-go test ./...
+rm -rf dist play_out apktool_out decompiled
