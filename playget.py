@@ -40,6 +40,17 @@ LOCALE = "en_US"
 DEFAULT_PROFILE = "pixel_7a"
 CACHE_VERSION = 1
 
+
+def read_tool_version():
+    try:
+        with open(os.path.join(HERE, "VERSION"), encoding="utf-8") as fh:
+            return fh.read().strip()
+    except OSError:
+        return "0.0.0+unknown"
+
+
+TOOL_VERSION = read_tool_version()
+
 # Finsky header blobs (from a current Aurora gplayapi release). If Google ever starts
 # rejecting these, refresh them from gplayapi's HeaderProvider.kt source.
 DFE_TARGETS = ("CAESN/qigQYC2AMBFfUbyA7SM5Ij/CvfBoIDgxHqGP8R3xzIBvoQtBKFDZ4HAY4FrwSVMasHBO0O2Q8a"
@@ -228,6 +239,28 @@ def device_config(profile, extra_features=()):
     for x in split_prop(profile, "locales"): c.systemSupportedLocale.append(x)
     for x in split_prop(profile, "gl.extensions"): c.glExtension.append(x)
     return c
+
+
+def device_config_summary(profile, extra_features=()):
+    cfg = device_config(profile, extra_features)
+    return {
+        "glEsVersion": cfg.glEsVersion,
+        "glExtension": list(cfg.glExtension),
+        "hasFiveWayNavigation": cfg.hasFiveWayNavigation,
+        "hasHardKeyboard": cfg.hasHardKeyboard,
+        "keyboard": cfg.keyboard,
+        "nativePlatform": list(cfg.nativePlatform),
+        "navigation": cfg.navigation,
+        "screenDensity": cfg.screenDensity,
+        "screenHeight": cfg.screenHeight,
+        "screenLayout": cfg.screenLayout,
+        "screenWidth": cfg.screenWidth,
+        "systemAvailableFeature": list(cfg.systemAvailableFeature),
+        "systemSharedLibrary": list(cfg.systemSharedLibrary),
+        "systemSupportedLocale": list(cfg.systemSupportedLocale),
+        "touchScreen": cfg.touchScreen,
+        "userAgent": user_agent(profile),
+    }
 
 
 def checkin_request(profile, extra_features=()):
@@ -436,8 +469,12 @@ def fetch(pkg, version, out_dir, retries=4, profile_name="auto", extra_features=
 
 def main():
     ap = argparse.ArgumentParser(description="Download a Google Play app (base + splits) locally.")
-    ap.add_argument("package", help="package name, e.g. com.anthropic.claude")
+    ap.add_argument("package", nargs="?", help="package name, e.g. com.anthropic.claude")
     ap.add_argument("--version", "-v", type=int, default=0, help="versionCode (default: latest)")
+    ap.add_argument("--tool-version", action="store_true",
+                    help="print the playget tool version and exit")
+    ap.add_argument("--dump-device-config-json", action="store_true",
+                    help="print deterministic device config JSON and exit")
     ap.add_argument("--out", "-o", default=None, help="output dir (default: play_out/<package>)")
     ap.add_argument("--profile", default="auto", choices=["auto"] + sorted(PROFILES),
                     help="device profile to use (default: auto)")
@@ -446,6 +483,16 @@ def main():
     ap.add_argument("--no-cache", action="store_true",
                     help="disable the per-package profile cache")
     a = ap.parse_args()
+    if a.tool_version:
+        print("playget %s" % TOOL_VERSION)
+        return
+    if a.dump_device_config_json:
+        profile = PROFILES[a.profile if a.profile != "auto" else DEFAULT_PROFILE]
+        print(json.dumps(device_config_summary(profile, a.extra_feature),
+                         sort_keys=True, separators=(",", ":")))
+        return
+    if not a.package:
+        ap.error("package is required unless --tool-version or --dump-device-config-json is used")
     out = a.out or os.path.join(HERE, "play_out", a.package)
     print("DONE: %s" % fetch(a.package, a.version, out,
                              profile_name=a.profile,

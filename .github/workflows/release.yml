@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.18"
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Validate version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(tr -d '[:space:]' < VERSION)"
+          tag="${GITHUB_REF_NAME#v}"
+          if [[ "$version" != "$tag" ]]; then
+            echo "VERSION ($version) does not match tag ($tag)" >&2
+            exit 1
+          fi
+
+      - name: Check
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/smoke.sh
+
+      - name: Package
+        shell: bash
+        run: scripts/package-release.sh
+
+      - name: Release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' \
+            'Install:' \
+            '' \
+            '```sh' \
+            'curl -fsSL https://github.com/cbxss/playget/releases/latest/download/install.sh | bash' \
+            '```' \
+            > dist/release-notes.md
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          assets=(
+            "dist/playget-$version.tar.gz"
+            "dist/playget.tar.gz"
+            "dist/install.sh"
+            "dist/sha256sums.txt"
+          )
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "${assets[@]}" --clobber
+          else
+            gh release create "$tag" "${assets[@]}" \
+              --title "playget $tag" \
+              --notes-file dist/release-notes.md
+          fi
