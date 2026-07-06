@@ -5,6 +5,7 @@ cd "$(dirname "$0")/.."
 
 mkdir -p internal/playproto
 protoc \
-  --go_out=internal/playproto \
-  --go_opt=paths=source_relative \
+  -I proto \
+  --go_out=. \
+  --go_opt=module=github.com/cbxss/playget \
   googleplay.proto
