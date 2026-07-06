@@ -1,4 +1,9 @@
 play_out/
 __pycache__/
+.pytest_cache/
+.ruff_cache/
+.venv/
+apktool_out/
+decompiled/
 *.apk
 *.xapk

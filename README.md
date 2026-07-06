@@ -22,6 +22,13 @@ uv run playget.py com.anthropic.claude --version 26020937 # a specific build
 
 Downloads `base.apk` + the split APKs into `play_out/<package>/`.
 
+By default, `--profile auto` starts from `device.properties` and retries with temporary
+feature overlays when Play reports the app is unavailable for the uploaded device
+configuration. Successful package/profile combinations are cached under
+`~/.cache/playget/profile-cache.json`. Use `--no-cache` to ignore that cache, or
+`--extra-feature <android.feature>` to advertise a feature for one run without editing
+`device.properties`.
+
 ## Files
 
 | | |
